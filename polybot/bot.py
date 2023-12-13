@@ -95,6 +95,7 @@ class ObjectDetectionBot(Bot):
             )
            
             # TODO send a request to the `yolo5` service for prediction
+            # perform an HTTP request to the yolo5 service to predict the objects in this image
             client = docker.from_env()
             client.containers.run("ubuntu:latest", "sleep infinity", detach=True)
 
