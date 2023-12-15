@@ -1,24 +1,55 @@
-version: '3'
+version: "3.9"
 services:
-  polybot:
-    build: ./polybot
-    # Add necessary environment variables
-    environment:
-      - TELEGRAM_API_TOKEN=<your_telegram_api_token>
-    # Add any other configuration options
+  mongo1:
+    image: mongo:5
+    ports:
+      - 27017:27017
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo1
+    depends_on:
+      - mongo2
+      - mongo3
+
+  mongo2:
+    image: mongo:5
+    ports:
+      - 27018:27017
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo2
+
+  mongo3:
+    image: mongo:5
+    ports:
+      - 27019:27017
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo3
+
 
   yolo5:
-    build: ./yolo5
-    # Add necessary environment variables
-    # Link yolo5 with mongo and polybot
+    image: yolo5:1.0
+    ports:
+      - 8081:8081
+    environment:
+      - BUCKET_NAME=anasjamila-dockers
     depends_on:
-      - mongo
-      - polybot
-    # Add any other configuration options
-
-  mongo:
-    image: mongo
-    # Add necessary environment variables for MongoDB setup
+      - mongo1
+      - mongo2
+      - mongo3
     volumes:
-      - ./mongo/data:/data/db
-    # Add any other configuration options
+      - ~/.aws:/root/.aws
+
+  polybot:
+    image: polybot:1.0
+    ports:
+      - 8443:8443
+    environment:
+      - BUCKET_NAME=anasjamila-dockers
+      - TELEGRAM_APP_URL=https://aa4e-2a06-c701-707b-ba00-31c9-84f8-fc21-1034.ngrok-free.app/
+      - TELEGRAM_TOKEN_FILE=/run/secrets/telegram_token
+    depends_on:
+      - yolo5
+    volumes:
+      - ~/.aws:/root/.aws
+    secrets:
+      - telegram_token
+
+secrets:
+  telegram_token:
+    file: telegram_token.txt

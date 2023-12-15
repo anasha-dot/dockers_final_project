@@ -76,29 +76,65 @@ class QuoteBot(Bot):
 
 
 class ObjectDetectionBot(Bot):
+    # def handle_message(self, msg):
+    #     logger.info(f'Incoming message: {msg}')
+
+    #     if self.is_current_msg_photo(msg):
+    #         pass
+    #         # TODO download the user photo (utilize download_user_photo)
+    #         file_path = self.download_user_photo(msg)
+    #         # TODO upload the photo to S3
+    #         obj = boto3.client("s3") 
+    #         images_bucket = os.environ['BUCKET_NAME']
+    #         img_name = file_path.split('/')[-1]
+
+    #         obj.upload_file( 
+    #             Filename=file_path, 
+    #             Bucket=images_bucket, 
+    #             Key=img_name
+    #         )
+           
+    #         # TODO send a request to the `yolo5` service for prediction
+    #         # perform an HTTP request to the yolo5 service to predict the objects in this image
+    #         client = docker.from_env()
+    #         client.containers.run("ubuntu:latest", "sleep infinity", detach=True)
+
+
+    #         # TODO send results to the Telegram end-user
+    #         # get results from curl
+
+            
     def handle_message(self, msg):
         logger.info(f'Incoming message: {msg}')
-
-        if self.is_current_msg_photo(msg):
-            pass
-            # TODO download the user photo (utilize download_user_photo)
-            file_path = self.download_user_photo(msg)
-            # TODO upload the photo to S3
-            obj = boto3.client("s3") 
-            images_bucket = os.environ['BUCKET_NAME']
-            img_name = file_path.split('/')[-1]
-
-            obj.upload_file( 
-                Filename=file_path, 
-                Bucket=images_bucket, 
-                Key=img_name
-            )
-           
-            # TODO send a request to the `yolo5` service for prediction
-            # perform an HTTP request to the yolo5 service to predict the objects in this image
-            client = docker.from_env()
-            client.containers.run("ubuntu:latest", "sleep infinity", detach=True)
-
-
-            # TODO send results to the Telegram end-user
-            # get results from curl
+        images_bucket = os.environ['BUCKET_NAME']
+        try:
+            if self.is_current_msg_photo(msg):
+                photo_path = self.download_user_photo(msg)
+                photo_name = photo_path.split('/')[1]
+                # Upload the file to S3
+                s3 = boto3.client('s3')
+                s3.upload_file(photo_path, images_bucket, photo_name)
+                # Make a request to the object detection service
+                response = requests.post(f"http://yolo5:8081/predict?imgName={photo_name}")
+                predictions = response.json()['labels']
+                detected_objects = {}
+                for predict in predictions:
+                    object_name = predict['class']
+                    if object_name in detected_objects:
+                        detected_objects[object_name] += 1
+                    else:
+                        detected_objects[object_name] = 1
+                text = 'Detected objects:\n' + '\n'.join(f'{key}: {value}' for key, value in detected_objects.items())
+                self.send_text(msg['chat']['id'], {text})
+            elif msg["text"] == '/start':
+                welcome_msg = ('Welcome to the "Image Prediction World". \nIn order to start the prediction please '
+                               'send me a photo.')
+                self.send_text(msg['chat']['id'], welcome_msg)
+            else:
+                msg_to_use = ("Sorry, I can only predict objects in photos.\nSend me a photo and I will show you the "
+                              "real magic.")
+                self.send_text_with_quote(msg['chat']['id'], msg_to_use, quoted_msg_id=msg["message_id"])
+        except Exception as e:
+            logger.error(f'Error processing message: {e}')
+            error_message = "An error occurred while processing your request. Please try again later."
+            self.send_text(msg['chat']['id'], error_message)
