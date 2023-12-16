@@ -42,7 +42,7 @@ services:
     environment:
       - BUCKET_NAME=anasjamila-dockers
       - TELEGRAM_APP_URL=https://aa4e-2a06-c701-707b-ba00-31c9-84f8-fc21-1034.ngrok-free.app/
-      - TELEGRAM_TOKEN_FILE=/run/secrets/telegram_token
+      - TELEGRAM_TOKEN_FILE=/run/secrets/telegram_token #still didnt change this
     depends_on:
       - yolo5
     volumes:
